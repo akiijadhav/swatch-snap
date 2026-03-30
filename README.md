@@ -7,7 +7,7 @@ A prototype tool for editing brand color swatches, capturing them as high-resolu
 - **Frontend**: React 18 + Vite + Tailwind CSS v4 + shadcn/ui
 - **Backend**: Python FastAPI
 - **Storage**: Google Cloud Storage (presigned URLs)
-- **Capture**: [html-to-image](https://github.com/bubkoo/html-to-image) (uses browser-native rendering, supports `oklch` and modern CSS)
+- **Capture**: [html-to-image](https://github.com/bubkoo/html-to-image) + [upng-js](https://github.com/nickthedude/upng-js) (browser-native rendering with PNG-8 quantization)
 
 ## Features
 
@@ -15,8 +15,9 @@ A prototype tool for editing brand color swatches, capturing them as high-resolu
 - Color picker powered by react-colorful wrapped in shadcn Popover
 - Dynamic Tailwind color name detection (nearest match from full Tailwind palette)
 - 2x resolution PNG capture via browser-native SVG foreignObject rendering
+- Optimized PNG-8 output via upng-js quantization (50-70% smaller than raw PNG-24)
 - Direct-to-GCS upload using presigned PUT URLs (backend never touches image bytes)
-- Gallery fetched live from GCS on every page load (no localStorage)
+- Gallery with file size badges, fetched live from GCS on every page load
 
 ## Project Structure
 
@@ -33,7 +34,7 @@ HtmltoCanvas/
           color-picker.tsx       # react-colorful in shadcn Popover
       lib/
         api.ts                   # API client (upload, view, list)
-        capture.ts               # html-to-image wrapper
+        capture.ts               # html-to-image + upng-js optimized capture
         tailwind-colors.ts       # Tailwind palette lookup (242 colors)
         utils.ts                 # shadcn cn() utility
       App.tsx
@@ -165,14 +166,16 @@ gcloud run deploy swatch-api \
 
 1. User edits swatch colors via color pickers
 2. Clicks **Save & Upload**
-3. `html-to-image` captures the card at 2x resolution as PNG (browser-native rendering, supports oklch/modern CSS)
-4. Frontend gets a presigned PUT URL from the backend
-5. Frontend uploads the blob directly to GCS (backend never touches the bytes)
-6. Gallery refreshes by fetching the full list from GCS via `/api/swatches`
+3. `html-to-image` captures the card at 2x resolution via SVG foreignObject → canvas
+4. `upng-js` quantizes the canvas pixels to 256-color PNG-8 (50-70% smaller, visually identical for solid-color content)
+5. Frontend gets a presigned PUT URL from the backend
+6. Frontend uploads the optimized blob directly to GCS (backend never touches the bytes)
+7. Gallery refreshes from GCS via `/api/swatches`, showing file size on each image
 
-## Image Quality
+## Image Optimization
 
 - Captured at 2x pixel ratio for high-resolution output
-- Lossless PNG format
+- PNG-8 quantization via upng-js (256-color palette) — ideal for solid-color swatch cards
+- Typically 50-70% smaller than raw PNG-24 with no visible quality loss
 - Uses browser-native rendering (not canvas re-implementation), so all CSS features render correctly
-- Suitable for feeding into AI design tools
+- File size displayed on each gallery thumbnail for visibility

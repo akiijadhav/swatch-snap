@@ -3,6 +3,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 export interface SwatchEntry {
   object_name: string;
   view_url: string;
+  size: number | null;
   created_at: string | null;
 }
 

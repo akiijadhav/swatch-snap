@@ -1,13 +1,21 @@
-import { toBlob } from "html-to-image";
+import { toCanvas } from "html-to-image";
+import UPNG from "upng-js";
 
 export async function captureElementAsBlob(
   element: HTMLElement
 ): Promise<Blob> {
-  const blob = await toBlob(element, {
+  const canvas = await toCanvas(element, {
     pixelRatio: 2,
     cacheBust: true,
   });
 
-  if (!blob) throw new Error("Failed to create blob from element");
-  return blob;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Failed to get canvas context");
+
+  const { width, height } = canvas;
+  const rgba = ctx.getImageData(0, 0, width, height).data;
+
+  const pngBuffer = UPNG.encode([rgba.buffer], width, height, 256);
+
+  return new Blob([pngBuffer], { type: "image/png" });
 }

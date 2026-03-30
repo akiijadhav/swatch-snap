@@ -1,6 +1,12 @@
 import { useState } from "react";
 import type { SwatchEntry } from "@/lib/api";
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 interface GalleryProps {
   entries: SwatchEntry[];
   loading: boolean;
@@ -36,11 +42,18 @@ export default function Gallery({ entries, loading }: GalleryProps) {
             key={entry.object_name}
             className="bg-card rounded-xl border border-border overflow-hidden shadow-sm"
           >
-            <img
-              src={entry.view_url}
-              alt={entry.object_name}
-              className="w-full h-auto"
-            />
+            <div className="relative">
+              <img
+                src={entry.view_url}
+                alt={entry.object_name}
+                className="w-full h-auto"
+              />
+              {entry.size != null && (
+                <span className="absolute top-2 right-2 text-[10px] font-mono bg-black/60 text-white px-1.5 py-0.5 rounded">
+                  {formatFileSize(entry.size)}
+                </span>
+              )}
+            </div>
             <div className="px-3 py-2 flex items-center justify-between gap-2">
               <span
                 className="text-xs text-muted-foreground truncate flex-1 font-mono"

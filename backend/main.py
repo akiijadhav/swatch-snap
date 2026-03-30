@@ -114,6 +114,7 @@ def list_swatches():
             items.append({
                 "object_name": b.name,
                 "view_url": view_url,
+                "size": b.size,
                 "created_at": b.time_created.isoformat() if b.time_created else None,
             })
 
