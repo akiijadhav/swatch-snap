@@ -52,6 +52,76 @@ def health():
     return {"status": "ok"}
 
 
+FONT_MIME_TYPES = {
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+}
+
+
+@app.get("/api/presign/font")
+def presign_font(
+    family: str = Query(..., description="Font family name"),
+    variant: str = Query(..., description="Font variant e.g. regular, 700, 700italic"),
+    ext: str = Query(..., description="File extension e.g. .ttf"),
+):
+    try:
+        family_slug = family.lower().replace(" ", "-")
+        safe_variant = variant.replace(" ", "-").lower()
+        object_name = f"fonts/{family_slug}/{safe_variant}{ext}"
+        content_type = FONT_MIME_TYPES.get(ext.lower(), "application/octet-stream")
+
+        client = get_storage_client()
+        bucket = client.bucket(BUCKET_NAME)
+        blob = bucket.blob(object_name)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=datetime.timedelta(minutes=15),
+            method="PUT",
+            content_type=content_type,
+        )
+        return {"upload_url": url, "object_name": object_name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/fonts")
+def list_fonts():
+    """List all uploaded custom fonts grouped by family."""
+    try:
+        client = get_storage_client()
+        bucket = client.bucket(BUCKET_NAME)
+        blobs = list(bucket.list_blobs(prefix="fonts/"))
+
+        families: dict[str, dict] = {}
+        for b in blobs:
+            if b.name.endswith("/"):
+                continue
+            parts = b.name.split("/")
+            if len(parts) != 3:
+                continue
+            family_slug = parts[1]
+            filename = parts[2]
+            variant = os.path.splitext(filename)[0]
+            family_name = family_slug.replace("-", " ").title()
+
+            view_url = b.generate_signed_url(
+                version="v4",
+                expiration=datetime.timedelta(hours=1),
+                method="GET",
+            )
+
+            if family_slug not in families:
+                families[family_slug] = {"family": family_name, "variants": [], "files": {}}
+            families[family_slug]["variants"].append(variant)
+            families[family_slug]["files"][variant] = view_url
+
+        return {"fonts": list(families.values())}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/presign/upload")
 def presign_upload(
     filename: str = Query(..., description="Desired filename"),

@@ -9,6 +9,19 @@ export interface GoogleFont {
   kind: string;
 }
 
+export interface CustomFont {
+  family: string;
+  variants: string[];
+  files: Record<string, string>; // variant → signed GCS URL
+  source: "custom";
+}
+
+export type AnyFont = GoogleFont | CustomFont;
+
+export function isCustomFont(font: AnyFont): font is CustomFont {
+  return (font as CustomFont).source === "custom";
+}
+
 const API_KEY = import.meta.env.VITE_GOOGLE_FONTS_API_KEY;
 const API_URL = "https://www.googleapis.com/webfonts/v1/webfonts";
 
@@ -58,10 +71,21 @@ export function getFontUrl(font: GoogleFont, variant = "regular"): string {
 
 export async function loadFont(
   fontFamily: string,
-  variant = "regular"
+  variant = "regular",
+  customUrl?: string
 ): Promise<void> {
   const key = `${fontFamily}::${variant}`;
   if (loadedFonts.has(key)) return;
+
+  if (customUrl) {
+    const weight = variant === "regular" || variant === "italic" ? "400" : variant.replace("italic", "");
+    const style = variant === "italic" || variant.endsWith("italic") ? "italic" : "normal";
+    const face = new FontFace(fontFamily, `url(${customUrl})`, { weight, style });
+    await face.load();
+    document.fonts.add(face);
+    loadedFonts.add(key);
+    return;
+  }
 
   return new Promise((resolve, reject) => {
     const link = document.createElement("link");

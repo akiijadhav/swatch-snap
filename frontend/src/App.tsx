@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import SwatchCard, { type SaveStatus } from "@/components/SwatchCard";
 import FontCard from "@/components/FontCard";
-import type { GoogleFont } from "@/lib/fonts";
+import type { AnyFont, CustomFont } from "@/lib/fonts";
 import Gallery from "@/components/Gallery";
 import { captureElementAsBlob } from "@/lib/capture";
 import {
@@ -9,6 +9,7 @@ import {
   uploadBlob,
   listSwatches,
   listTypography,
+  listCustomFonts,
   type SwatchEntry,
 } from "@/lib/api";
 
@@ -49,7 +50,8 @@ export default function App() {
   const [typographyGallery, setTypographyGallery] = useState<SwatchEntry[]>([]);
   const [swatchLoading, setSwatchLoading] = useState(true);
   const [typographyLoading, setTypographyLoading] = useState(true);
-  const [selectedFont, setSelectedFont] = useState<GoogleFont | undefined>(undefined);
+  const [selectedFont, setSelectedFont] = useState<AnyFont | undefined>(undefined);
+  const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
 
   const fetchSwatches = useCallback(async () => {
     try {
@@ -73,10 +75,20 @@ export default function App() {
     }
   }, []);
 
+  const fetchCustomFonts = useCallback(async () => {
+    try {
+      const fonts = await listCustomFonts();
+      setCustomFonts(fonts.map((f) => ({ ...f, source: "custom" as const })));
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchSwatches();
     fetchTypography();
-  }, [fetchSwatches, fetchTypography]);
+    fetchCustomFonts();
+  }, [fetchSwatches, fetchTypography, fetchCustomFonts]);
 
   const swatch = useSaveCard("swatch", "swatches", fetchSwatches, "png8");
   const font = useSaveCard("font", "typography", fetchTypography, "png24");
@@ -120,6 +132,8 @@ export default function App() {
           onSave={font.save}
           selectedFont={selectedFont}
           onFontSelect={setSelectedFont}
+          customFonts={customFonts}
+          onCustomFontsUploaded={fetchCustomFonts}
         />
         <Gallery entries={typographyGallery} loading={typographyLoading} title="Saved Typography Cards" />
       </section>

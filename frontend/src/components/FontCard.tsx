@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useOutsideClick } from "@/hooks/useOutsideClick";
 import { FontPicker } from "@/components/ui/font-picker";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Pencil } from "lucide-react";
-import type { GoogleFont } from "@/lib/fonts";
-import { loadFont } from "@/lib/fonts";
+import { Pencil, X } from "lucide-react";
+import type { AnyFont, CustomFont } from "@/lib/fonts";
+import { isCustomFont, loadFont } from "@/lib/fonts";
 import type { SaveStatus } from "@/components/SwatchCard";
 
 const PLACEHOLDER = "The quick brown fox jumps over the lazy dog.";
@@ -59,8 +58,10 @@ interface FontCardProps {
   saveStatus: SaveStatus;
   saveError: string | null;
   onSave: () => void;
-  selectedFont: GoogleFont | undefined;
-  onFontSelect: (font: GoogleFont) => void;
+  selectedFont: AnyFont | undefined;
+  onFontSelect: (font: AnyFont) => void;
+  customFonts: CustomFont[];
+  onCustomFontsUploaded: () => void;
 }
 
 export default function FontCard({
@@ -70,9 +71,10 @@ export default function FontCard({
   onSave,
   selectedFont,
   onFontSelect,
+  customFonts,
+  onCustomFontsUploaded,
 }: FontCardProps) {
   const textRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const [role, setRole] = useState<Role>("Body");
   const [fontWeight, setFontWeight] = useState("regular");
@@ -93,14 +95,13 @@ export default function FontCard({
     if (!selectedFont) return;
     setFontReady(false);
     const t = setTimeout(() => {
-      loadFont(selectedFont.family, fontWeight)
+      const customUrl = isCustomFont(selectedFont) ? selectedFont.files[fontWeight] : undefined;
+      loadFont(selectedFont.family, fontWeight, customUrl)
         .catch(() => {})
         .finally(() => setFontReady(true));
     }, 120);
     return () => clearTimeout(t);
   }, [selectedFont?.family, fontWeight]);
-
-  useOutsideClick(containerRef, panelOpen, () => setPanelOpen(false));
 
   // Focus editable text when panel opens
   useEffect(() => {
@@ -147,7 +148,7 @@ export default function FontCard({
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col items-center gap-3 w-full max-w-3xl">
+    <div className="flex flex-col items-center gap-3 w-full max-w-3xl">
 
       {/* ── Capturable card ── */}
       <div
@@ -165,16 +166,16 @@ export default function FontCard({
             {role}
           </span>
 
-          {/* Pencil — always visible */}
+          {/* Edit / Close toggle */}
           <button
             onClick={() => setPanelOpen((o) => !o)}
             className={cn(
               "p-1.5 rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-muted",
               panelOpen && "bg-muted text-foreground"
             )}
-            title={panelOpen ? "Done editing" : "Edit font"}
+            title={panelOpen ? "Close" : "Edit font"}
           >
-            <Pencil className="h-4 w-4" />
+            {panelOpen ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
           </button>
         </div>
 
@@ -242,6 +243,8 @@ export default function FontCard({
               onChange={onFontSelect}
               width={240}
               height={300}
+              customFonts={customFonts}
+              onCustomFontsUploaded={onCustomFontsUploaded}
             />
           </div>
 
