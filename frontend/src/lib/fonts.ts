@@ -79,8 +79,20 @@ export async function loadFont(
 
   if (customUrl) {
     const weight = variant === "regular" || variant === "italic" ? "400" : variant.replace("italic", "");
-    const style = variant === "italic" || variant.endsWith("italic") ? "italic" : "normal";
-    const face = new FontFace(fontFamily, `url(${customUrl})`, { weight, style });
+    const fontStyle = variant === "italic" || variant.endsWith("italic") ? "italic" : "normal";
+
+    // Inject a <style> @font-face rule so html-to-image can discover and embed
+    // the font during canvas capture (FontFace API alone doesn't transfer to cloned DOM)
+    const styleId = `custom-font-${fontFamily.replace(/\s+/g, "-")}-${variant}`;
+    if (!document.getElementById(styleId)) {
+      const styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      styleEl.textContent = `@font-face { font-family: '${fontFamily}'; src: url('${customUrl}'); font-weight: ${weight}; font-style: ${fontStyle}; }`;
+      document.head.appendChild(styleEl);
+    }
+
+    // Also load via FontFace API so the browser renders it immediately
+    const face = new FontFace(fontFamily, `url(${customUrl})`, { weight, style: fontStyle });
     await face.load();
     document.fonts.add(face);
     loadedFonts.add(key);
