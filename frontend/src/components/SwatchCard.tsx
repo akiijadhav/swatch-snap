@@ -137,6 +137,7 @@ export default function SwatchCard({
       </div>
 
       {/* Save button */}
+      <div className="flex justify-end w-full">
       <Button
         onClick={handleSave}
         disabled={busy}
@@ -157,9 +158,10 @@ export default function SwatchCard({
           <span className="ml-2 w-2 h-2 rounded-full bg-amber-400 inline-block" />
         )}
       </Button>
+      </div>
 
       {saveError && (
-        <p className="text-xs text-destructive">{saveError}</p>
+        <p className="text-xs text-destructive text-right w-full">{saveError}</p>
       )}
     </div>
   );

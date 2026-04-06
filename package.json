@@ -1,0 +1,15 @@
+{
+  "name": "brand-kit-capture",
+  "version": "1.0.0",
+  "description": "Capture brand color palettes and typography cards as optimized PNG assets, uploaded directly to Google Cloud Storage.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently --names \"frontend,backend\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix frontend\" \"dev-backend.bat\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

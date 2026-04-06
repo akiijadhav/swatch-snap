@@ -1,6 +1,6 @@
-# Brand Swatch Capture
+# Brand Kit Capture
 
-A prototype tool for editing brand color swatches, capturing them as high-resolution PNGs, and uploading to Google Cloud Storage. Built to produce clean swatch images for AI-powered design workflows.
+A full-stack tool for capturing brand color swatches and typography cards as optimized PNG images, uploaded directly to Google Cloud Storage. Built to produce clean brand assets for AI-powered design workflows.
 
 ## Stack
 
@@ -11,9 +11,19 @@ A prototype tool for editing brand color swatches, capturing them as high-resolu
 
 ## Features
 
+### Swatch Card
 - 4 editable color swatches (Primary, Accent, Secondary, Background)
 - Color picker powered by react-colorful wrapped in shadcn Popover
 - Dynamic Tailwind color name detection (nearest match from full Tailwind palette)
+
+### Font Card
+- Google Fonts picker with search + category filter (1000+ fonts)
+- All weight + style variants shown as pills (e.g. Thin, Regular, Bold Italic)
+- Typography role selector: Title, Heading, Subheading, Section Header, Body, Quotes, Captions
+- Editable preview text with blur-fade animation on font/weight change
+- Edit panel closes on outside click
+
+### Shared
 - 2x resolution PNG capture via browser-native SVG foreignObject rendering
 - Optimized PNG-8 output via upng-js quantization (50-70% smaller than raw PNG-24)
 - Direct-to-GCS upload using presigned PUT URLs (backend never touches image bytes)
@@ -22,33 +32,36 @@ A prototype tool for editing brand color swatches, capturing them as high-resolu
 ## Project Structure
 
 ```
-HtmltoCanvas/
+brand-kit-capture/
   frontend/                     # Vite + React + Tailwind v4 + shadcn/ui
     src/
       components/
-        SwatchCard.tsx           # Swatch card with color pickers + save button
-        Gallery.tsx              # Gallery of uploaded swatch images
+        SwatchCard.tsx           # Color swatch editor + capture
+        FontCard.tsx             # Typography card editor + capture
+        Gallery.tsx              # Gallery of uploaded images
         ui/
-          button.tsx             # shadcn Button
-          popover.tsx            # shadcn Popover
-          color-picker.tsx       # react-colorful in shadcn Popover
+          font-picker.tsx        # Google Fonts picker (search, category, variants)
+      hooks/
+        useOutsideClick.ts       # Reusable outside-click hook
       lib/
         api.ts                   # API client (upload, view, list)
         capture.ts               # html-to-image + upng-js optimized capture
+        fonts.ts                 # Google Fonts API client (24h cache)
         tailwind-colors.ts       # Tailwind palette lookup (242 colors)
         utils.ts                 # shadcn cn() utility
       App.tsx
       main.tsx
       index.css                  # Tailwind v4 + shadcn theme
+    .env.example
     vite.config.ts
     vercel.json
-    components.json              # shadcn config
   backend/                       # FastAPI
     main.py                      # API endpoints
     setup_cors.py                # One-time CORS setup script
     requirements.txt
     Dockerfile
     .env.example
+  package.json                   # Root: concurrently dev script
   README.md
 ```
 
@@ -68,32 +81,32 @@ HtmltoCanvas/
 - Node.js 18+
 - Python 3.10+
 - A GCS bucket + service account with `Storage Object Admin` role
+- A [Google Fonts API key](https://console.cloud.google.com) (APIs & Services → Enable "Web Fonts Developer API" → Credentials → Create API Key)
 
-### Backend
+### Install & run
 
 ```bash
+# Install root + frontend dependencies
+npm install
+cd frontend && npm install && cd ..
+
+# Set up backend venv (one-time)
 cd backend
 python -m venv .venv
-
-# Linux/Mac:
-source .venv/bin/activate
-# Windows:
-.venv\Scripts\activate
-
+.venv\Scripts\activate     # Windows
+# source .venv/bin/activate  # Mac/Linux
 pip install -r requirements.txt
-cp .env.example .env    # fill in your values
-uvicorn main:app --reload --port 8000
-```
+cd ..
 
-### Frontend
+# Configure env files
+cp frontend/.env.example frontend/.env   # add VITE_GOOGLE_FONTS_API_KEY
+cp backend/.env.example backend/.env     # add GCS credentials
 
-```bash
-cd frontend
-npm install
+# Run both frontend + backend together
 npm run dev
 ```
 
-Vite proxies `/api` to `localhost:8000` in dev mode. Open http://localhost:5173.
+Vite dev server runs on http://localhost:5173, backend on http://localhost:8000. Vite proxies `/api` to the backend automatically.
 
 ## Environment Variables
 

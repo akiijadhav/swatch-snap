@@ -53,13 +53,18 @@ def health():
 
 
 @app.get("/api/presign/upload")
-def presign_upload(filename: str = Query(..., description="Desired filename")):
+def presign_upload(
+    filename: str = Query(..., description="Desired filename"),
+    folder: str = Query("swatches", description="GCS folder: 'swatches' or 'typography'"),
+):
+    if folder not in ("swatches", "typography"):
+        raise HTTPException(status_code=400, detail="folder must be 'swatches' or 'typography'")
     try:
         client = get_storage_client()
         bucket = client.bucket(BUCKET_NAME)
 
         ext = os.path.splitext(filename)[1] or ".png"
-        object_name = f"swatches/{uuid.uuid4().hex}{ext}"
+        object_name = f"{folder}/{uuid.uuid4().hex}{ext}"
 
         blob = bucket.blob(object_name)
         url = blob.generate_signed_url(
@@ -94,31 +99,42 @@ def presign_view(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def list_folder(folder: str) -> list:
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET_NAME)
+    blobs = list(bucket.list_blobs(prefix=f"{folder}/"))
+    items = []
+    for b in sorted(blobs, key=lambda x: x.time_created or datetime.datetime.min, reverse=True):
+        if b.name.endswith("/"):
+            continue
+        view_url = b.generate_signed_url(
+            version="v4",
+            expiration=datetime.timedelta(hours=1),
+            method="GET",
+        )
+        items.append({
+            "object_name": b.name,
+            "view_url": view_url,
+            "size": b.size,
+            "created_at": b.time_created.isoformat() if b.time_created else None,
+        })
+    return items
+
+
 @app.get("/api/swatches")
 def list_swatches():
-    """List all uploaded swatches with fresh signed view URLs."""
+    """List all uploaded color swatches."""
     try:
-        client = get_storage_client()
-        bucket = client.bucket(BUCKET_NAME)
-        blobs = list(bucket.list_blobs(prefix="swatches/"))
+        return {"swatches": list_folder("swatches")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-        items = []
-        for b in sorted(blobs, key=lambda x: x.time_created or datetime.datetime.min, reverse=True):
-            if b.name.endswith("/"):
-                continue
-            view_url = b.generate_signed_url(
-                version="v4",
-                expiration=datetime.timedelta(hours=1),
-                method="GET",
-            )
-            items.append({
-                "object_name": b.name,
-                "view_url": view_url,
-                "size": b.size,
-                "created_at": b.time_created.isoformat() if b.time_created else None,
-            })
 
-        return {"swatches": items}
+@app.get("/api/typography")
+def list_typography():
+    """List all uploaded typography cards."""
+    try:
+        return {"typography": list_folder("typography")}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

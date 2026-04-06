@@ -1,78 +1,127 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import SwatchCard, { type SaveStatus } from "@/components/SwatchCard";
+import FontCard from "@/components/FontCard";
+import type { GoogleFont } from "@/lib/fonts";
 import Gallery from "@/components/Gallery";
 import { captureElementAsBlob } from "@/lib/capture";
 import {
   getUploadUrl,
   uploadBlob,
   listSwatches,
+  listTypography,
   type SwatchEntry,
 } from "@/lib/api";
 
-export default function App() {
-  const cardRef = useRef<HTMLDivElement>(null!);
-  const [gallery, setGallery] = useState<SwatchEntry[]>([]);
-  const [galleryLoading, setGalleryLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [saveError, setSaveError] = useState<string | null>(null);
+function useSaveCard(
+  prefix: string,
+  folder: "swatches" | "typography",
+  onDone: () => void
+) {
+  const ref = useRef<HTMLDivElement>(null!);
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchGallery = useCallback(async () => {
+  const save = useCallback(async () => {
+    if (!ref.current) return;
+    setError(null);
     try {
-      setGalleryLoading(true);
-      const items = await listSwatches();
-      setGallery(items);
+      setStatus("capturing");
+      const blob = await captureElementAsBlob(ref.current);
+      setStatus("uploading");
+      const { upload_url } = await getUploadUrl(`${prefix}-${Date.now()}.png`, folder);
+      await uploadBlob(upload_url, blob);
+      setStatus("done");
+      onDone();
+      setTimeout(() => setStatus("idle"), 2000);
+    } catch (err) {
+      setStatus("error");
+      setError(err instanceof Error ? err.message : "Upload failed");
+      setTimeout(() => setStatus("idle"), 4000);
+    }
+  }, [prefix, folder, onDone]);
+
+  return { ref, status, error, save };
+}
+
+export default function App() {
+  const [swatchGallery, setSwatchGallery] = useState<SwatchEntry[]>([]);
+  const [typographyGallery, setTypographyGallery] = useState<SwatchEntry[]>([]);
+  const [swatchLoading, setSwatchLoading] = useState(true);
+  const [typographyLoading, setTypographyLoading] = useState(true);
+  const [selectedFont, setSelectedFont] = useState<GoogleFont | undefined>(undefined);
+
+  const fetchSwatches = useCallback(async () => {
+    try {
+      setSwatchLoading(true);
+      setSwatchGallery(await listSwatches());
     } catch {
-      // silently fail -- gallery just won't show
+      // silently fail
     } finally {
-      setGalleryLoading(false);
+      setSwatchLoading(false);
+    }
+  }, []);
+
+  const fetchTypography = useCallback(async () => {
+    try {
+      setTypographyLoading(true);
+      setTypographyGallery(await listTypography());
+    } catch {
+      // silently fail
+    } finally {
+      setTypographyLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchGallery();
-  }, [fetchGallery]);
+    fetchSwatches();
+    fetchTypography();
+  }, [fetchSwatches, fetchTypography]);
 
-  const handleSave = useCallback(async () => {
-    if (!cardRef.current) return;
-    setSaveError(null);
-
-    try {
-      setSaveStatus("capturing");
-      const blob = await captureElementAsBlob(cardRef.current);
-
-      setSaveStatus("uploading");
-      const filename = `swatch-${Date.now()}.png`;
-      const { upload_url } = await getUploadUrl(filename);
-      await uploadBlob(upload_url, blob);
-
-      setSaveStatus("done");
-      fetchGallery();
-      setTimeout(() => setSaveStatus("idle"), 2000);
-    } catch (err) {
-      setSaveStatus("error");
-      setSaveError(err instanceof Error ? err.message : "Upload failed");
-      setTimeout(() => setSaveStatus("idle"), 4000);
-    }
-  }, [fetchGallery]);
+  const swatch = useSaveCard("swatch", "swatches", fetchSwatches);
+  const font = useSaveCard("font", "typography", fetchTypography);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center py-12 px-4 gap-8">
+    <div className="min-h-screen bg-background flex flex-col items-center py-12 px-4 gap-16">
       <header className="text-center">
-        <h1 className="text-2xl font-bold text-foreground">
-          Brand Swatch Capture
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground">Brand Kit Capture</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Edit colors, capture the card, and upload to cloud storage
+          Capture brand colors and typography as optimized PNG assets
         </p>
       </header>
 
-      <SwatchCard
-        cardRef={cardRef}
-        saveStatus={saveStatus}
-        saveError={saveError}
-        onSave={handleSave}
-      />
-      <Gallery entries={gallery} loading={galleryLoading} />
+      {/* Brand Colors section */}
+      <section className="w-full max-w-3xl flex flex-col gap-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Brand Colors</h2>
+          <p className="text-sm text-muted-foreground">Edit and capture your brand color palette</p>
+        </div>
+        <SwatchCard
+          cardRef={swatch.ref}
+          saveStatus={swatch.status}
+          saveError={swatch.error}
+          onSave={swatch.save}
+        />
+        <Gallery entries={swatchGallery} loading={swatchLoading} title="Saved Color Palettes" />
+      </section>
+
+      <div className="w-full max-w-3xl border-t border-border" />
+
+      {/* Typography section */}
+      <section className="w-full max-w-3xl flex flex-col gap-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Typography</h2>
+          <p className="text-sm text-muted-foreground">Choose fonts, roles, and weights for your brand</p>
+        </div>
+        <FontCard
+          cardRef={font.ref}
+          saveStatus={font.status}
+          saveError={font.error}
+          onSave={font.save}
+          selectedFont={selectedFont}
+          onFontSelect={setSelectedFont}
+        />
+        <Gallery entries={typographyGallery} loading={typographyLoading} title="Saved Typography Cards" />
+      </section>
     </div>
   );
 }

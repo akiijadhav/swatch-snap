@@ -49,7 +49,7 @@ const ColorPicker = forwardRef<HTMLButtonElement, ColorPickerProps>(
         <PopoverContent
           className="w-56 p-3"
           align="start"
-          side="top"
+          side="bottom"
           sideOffset={8}
         >
           <HexColorPicker

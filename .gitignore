@@ -13,6 +13,8 @@ service-account.json
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # IDE
 .vscode/
@@ -21,3 +23,6 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Debug / temp
+fonts.json

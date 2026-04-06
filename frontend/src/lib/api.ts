@@ -7,21 +7,18 @@ export interface SwatchEntry {
   created_at: string | null;
 }
 
-export async function getUploadUrl(filename: string): Promise<{
-  upload_url: string;
-  object_name: string;
-}> {
+export async function getUploadUrl(
+  filename: string,
+  folder: "swatches" | "typography" = "swatches"
+): Promise<{ upload_url: string; object_name: string }> {
   const res = await fetch(
-    `${API_BASE}/api/presign/upload?filename=${encodeURIComponent(filename)}`
+    `${API_BASE}/api/presign/upload?filename=${encodeURIComponent(filename)}&folder=${folder}`
   );
   if (!res.ok) throw new Error(`Failed to get upload URL: ${res.statusText}`);
   return res.json();
 }
 
-export async function uploadBlob(
-  uploadUrl: string,
-  blob: Blob
-): Promise<void> {
+export async function uploadBlob(uploadUrl: string, blob: Blob): Promise<void> {
   const res = await fetch(uploadUrl, {
     method: "PUT",
     headers: { "Content-Type": "image/png" },
@@ -35,4 +32,11 @@ export async function listSwatches(): Promise<SwatchEntry[]> {
   if (!res.ok) throw new Error(`Failed to list swatches: ${res.statusText}`);
   const data = await res.json();
   return data.swatches;
+}
+
+export async function listTypography(): Promise<SwatchEntry[]> {
+  const res = await fetch(`${API_BASE}/api/typography`);
+  if (!res.ok) throw new Error(`Failed to list typography: ${res.statusText}`);
+  const data = await res.json();
+  return data.typography;
 }
