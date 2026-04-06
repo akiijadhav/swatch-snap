@@ -15,7 +15,8 @@ import {
 function useSaveCard(
   prefix: string,
   folder: "swatches" | "typography",
-  onDone: () => void
+  onDone: () => void,
+  quality: "png8" | "png24" = "png8"
 ) {
   const ref = useRef<HTMLDivElement>(null!);
   const [status, setStatus] = useState<SaveStatus>("idle");
@@ -26,7 +27,7 @@ function useSaveCard(
     setError(null);
     try {
       setStatus("capturing");
-      const blob = await captureElementAsBlob(ref.current);
+      const blob = await captureElementAsBlob(ref.current, quality);
       setStatus("uploading");
       const { upload_url } = await getUploadUrl(`${prefix}-${Date.now()}.png`, folder);
       await uploadBlob(upload_url, blob);
@@ -77,8 +78,8 @@ export default function App() {
     fetchTypography();
   }, [fetchSwatches, fetchTypography]);
 
-  const swatch = useSaveCard("swatch", "swatches", fetchSwatches);
-  const font = useSaveCard("font", "typography", fetchTypography);
+  const swatch = useSaveCard("swatch", "swatches", fetchSwatches, "png8");
+  const font = useSaveCard("font", "typography", fetchTypography, "png24");
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center py-12 px-4 gap-16">
