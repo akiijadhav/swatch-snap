@@ -6,8 +6,6 @@ import { Pencil, X } from "lucide-react";
 import type { AnyFont, CustomFont } from "@/lib/fonts";
 import { isCustomFont, loadFont } from "@/lib/fonts";
 import type { SaveStatus } from "@/components/SwatchCard";
-import { useOutsideClick } from "@/hooks/useOutsideClick";
-
 const PLACEHOLDER = "The quick brown fox jumps over the lazy dog.";
 
 const ROLES = [
@@ -22,10 +20,6 @@ const ROLES = [
 type Role = (typeof ROLES)[number];
 
 const ROLE_BADGE = "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
-const PANEL_OUTSIDE_IGNORE_SELECTORS = [
-  "[data-slot='popover-content']",
-  "[data-slot='dropdown-menu-content']",
-];
 
 const WEIGHT_NAMES: Record<string, string> = {
   "100": "Thin",
@@ -79,7 +73,6 @@ export default function FontCard({
   customFonts,
   onCustomFontsUploaded,
 }: FontCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
   const [role, setRole] = useState<Role>("Body");
@@ -116,12 +109,6 @@ export default function FontCard({
     }
   }, [panelOpen]);
 
-  useOutsideClick(
-    containerRef,
-    panelOpen,
-    () => setPanelOpen(false),
-    PANEL_OUTSIDE_IGNORE_SELECTORS
-  );
 
 
   const handleTextBlur = useCallback(() => {
@@ -163,7 +150,7 @@ export default function FontCard({
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col items-center gap-3 w-full max-w-3xl">
+    <div className="flex flex-col items-center gap-3 w-full max-w-3xl">
 
       {/* ── Capturable card ── */}
       <div
