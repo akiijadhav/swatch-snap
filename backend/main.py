@@ -104,7 +104,12 @@ def list_fonts():
             family_slug = parts[1]
             filename = parts[2]
             variant = os.path.splitext(filename)[0]
-            family_name = family_slug.replace("-", " ").title()
+            # Capitalize first letter of each word only, preserving existing casing
+            # (avoids .title() lowercasing acronyms like IBM → Ibm)
+            family_name = " ".join(
+                w[0].upper() + w[1:] if w else w
+                for w in family_slug.split("-")
+            )
 
             view_url = b.generate_signed_url(
                 version="v4",

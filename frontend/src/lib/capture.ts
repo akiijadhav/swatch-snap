@@ -5,6 +5,9 @@ export async function captureElementAsBlob(
   element: HTMLElement,
   quality: "png8" | "png24" = "png8"
 ): Promise<Blob> {
+  // Wait for all pending font loads to settle before cloning the DOM
+  await document.fonts.ready;
+
   const canvas = await toCanvas(element, {
     pixelRatio: 2,
     cacheBust: true,

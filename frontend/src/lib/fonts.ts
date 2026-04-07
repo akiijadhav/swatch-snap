@@ -64,9 +64,12 @@ export async function fetchGoogleFonts(): Promise<GoogleFont[]> {
 }
 
 export function getFontUrl(font: GoogleFont, variant = "regular"): string {
-  const fontFamily = font.family.replace(/\s+/g, "+");
-  const fontVariant = variant === "regular" ? "400" : variant;
-  return `https://fonts.googleapis.com/css2?family=${fontFamily}:wght@${fontVariant}&display=swap`;
+  const family = font.family.replace(/\s+/g, "+");
+  const italic = variant === "italic" || variant.endsWith("italic");
+  const weight = variant === "regular" || variant === "italic" ? "400" : variant.replace("italic", "");
+  // CSS API v2: italic variants require ital,wght@1,{weight} axis syntax
+  const axis = italic ? `ital,wght@1,${weight}` : `wght@${weight}`;
+  return `https://fonts.googleapis.com/css2?family=${family}:${axis}&display=swap`;
 }
 
 export async function loadFont(
@@ -81,18 +84,29 @@ export async function loadFont(
     const weight = variant === "regular" || variant === "italic" ? "400" : variant.replace("italic", "");
     const fontStyle = variant === "italic" || variant.endsWith("italic") ? "italic" : "normal";
 
-    // Inject a <style> @font-face rule so html-to-image can discover and embed
-    // the font during canvas capture (FontFace API alone doesn't transfer to cloned DOM)
+    // Fetch font bytes once — used for both FontFace API (browser render) and @font-face style tag (capture)
+    const response = await fetch(customUrl);
+    const buffer = await response.arrayBuffer();
+
+    // Convert to base64 data URL so html-to-image never re-fetches the URL.
+    // cacheBust: true appends a random query param, which invalidates GCS v4 signed URL signatures → 403.
+    // A data: URL has no query string — cacheBust can't touch it.
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const ext = customUrl.split("?")[0].split(".").pop() ?? "ttf";
+    const dataUrl = `data:font/${ext};base64,${btoa(binary)}`;
+
     const styleId = `custom-font-${fontFamily.replace(/\s+/g, "-")}-${variant}`;
     if (!document.getElementById(styleId)) {
       const styleEl = document.createElement("style");
       styleEl.id = styleId;
-      styleEl.textContent = `@font-face { font-family: '${fontFamily}'; src: url('${customUrl}'); font-weight: ${weight}; font-style: ${fontStyle}; }`;
+      styleEl.textContent = `@font-face { font-family: '${fontFamily}'; src: url('${dataUrl}'); font-weight: ${weight}; font-style: ${fontStyle}; }`;
       document.head.appendChild(styleEl);
     }
 
-    // Also load via FontFace API so the browser renders it immediately
-    const face = new FontFace(fontFamily, `url(${customUrl})`, { weight, style: fontStyle });
+    // FontFace constructor accepts ArrayBuffer directly — no second network fetch needed
+    const face = new FontFace(fontFamily, buffer, { weight, style: fontStyle });
     await face.load();
     document.fonts.add(face);
     loadedFonts.add(key);
