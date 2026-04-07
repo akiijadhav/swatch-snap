@@ -6,6 +6,7 @@ import { Pencil, X } from "lucide-react";
 import type { AnyFont, CustomFont } from "@/lib/fonts";
 import { isCustomFont, loadFont } from "@/lib/fonts";
 import type { SaveStatus } from "@/components/SwatchCard";
+import { useOutsideClick } from "@/hooks/useOutsideClick";
 
 const PLACEHOLDER = "The quick brown fox jumps over the lazy dog.";
 
@@ -21,6 +22,10 @@ const ROLES = [
 type Role = (typeof ROLES)[number];
 
 const ROLE_BADGE = "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+const PANEL_OUTSIDE_IGNORE_SELECTORS = [
+  "[data-slot='popover-content']",
+  "[data-slot='dropdown-menu-content']",
+];
 
 const WEIGHT_NAMES: Record<string, string> = {
   "100": "Thin",
@@ -57,7 +62,7 @@ interface FontCardProps {
   cardRef: React.RefObject<HTMLDivElement>;
   saveStatus: SaveStatus;
   saveError: string | null;
-  onSave: () => void;
+  onSave: () => Promise<boolean>;
   selectedFont: AnyFont | undefined;
   onFontSelect: (font: AnyFont) => void;
   customFonts: CustomFont[];
@@ -74,6 +79,7 @@ export default function FontCard({
   customFonts,
   onCustomFontsUploaded,
 }: FontCardProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
   const [role, setRole] = useState<Role>("Body");
@@ -110,6 +116,13 @@ export default function FontCard({
     }
   }, [panelOpen]);
 
+  useOutsideClick(
+    containerRef,
+    panelOpen,
+    () => setPanelOpen(false),
+    PANEL_OUTSIDE_IGNORE_SELECTORS
+  );
+
 
   const handleTextBlur = useCallback(() => {
     if (textRef.current && !textRef.current.textContent?.trim()) {
@@ -117,16 +130,15 @@ export default function FontCard({
     }
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (panelOpen) {
       setPanelOpen(false);
-      setTimeout(onSave, 350); // wait for panel close animation (300ms)
-    } else {
-      onSave();
+      await new Promise((resolve) => setTimeout(resolve, 350));
     }
+    await onSave();
   }, [panelOpen, onSave]);
 
-  const busy = saveStatus === "capturing" || saveStatus === "uploading";
+  const busy = saveStatus === "capturing" || saveStatus === "uploading" || !fontReady;
 
   const saveLabel: Record<SaveStatus, string> = {
     idle: "Save & Upload",
@@ -135,6 +147,9 @@ export default function FontCard({
     done: "Saved!",
     error: "Failed",
   };
+
+  const currentSaveLabel =
+    saveStatus === "idle" && !fontReady ? "Loading Font..." : saveLabel[saveStatus];
 
   const previewStyle: React.CSSProperties = {
     fontFamily: selectedFont?.family ?? "inherit",
@@ -148,7 +163,7 @@ export default function FontCard({
   };
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-3xl">
+    <div ref={containerRef} className="flex flex-col items-center gap-3 w-full max-w-3xl">
 
       {/* ── Capturable card ── */}
       <div
@@ -290,7 +305,7 @@ export default function FontCard({
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           )}
-          {saveLabel[saveStatus]}
+          {currentSaveLabel}
         </Button>
       </div>
 

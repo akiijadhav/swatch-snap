@@ -23,8 +23,8 @@ function useSaveCard(
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const save = useCallback(async () => {
-    if (!ref.current) return;
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!ref.current) return false;
     setError(null);
     try {
       setStatus("capturing");
@@ -35,12 +35,14 @@ function useSaveCard(
       setStatus("done");
       onDone();
       setTimeout(() => setStatus("idle"), 2000);
+      return true;
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Upload failed");
       setTimeout(() => setStatus("idle"), 4000);
+      return false;
     }
-  }, [prefix, folder, onDone]);
+  }, [folder, onDone, prefix, quality]);
 
   return { ref, status, error, save };
 }

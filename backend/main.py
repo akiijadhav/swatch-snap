@@ -59,6 +59,8 @@ FONT_MIME_TYPES = {
     ".woff2": "font/woff2",
 }
 
+FAMILY_MARKER_FILENAME = "_family.txt"
+
 
 @app.get("/api/presign/font")
 def presign_font(
@@ -81,6 +83,12 @@ def presign_font(
             method="PUT",
             content_type=content_type,
         )
+
+        # Persist the original family name so list_fonts can return it verbatim.
+        # The slug is always lowercase so reconstruction can never recover IBM, DM, PT etc.
+        name_blob = bucket.blob(f"fonts/{family_slug}/{FAMILY_MARKER_FILENAME}")
+        name_blob.upload_from_string(family, content_type="text/plain")
+
         return {"upload_url": url, "object_name": object_name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -94,6 +102,13 @@ def list_fonts():
         bucket = client.bucket(BUCKET_NAME)
         blobs = list(bucket.list_blobs(prefix="fonts/"))
 
+        # First pass: read family marker blobs to get original family names.
+        family_names: dict[str, str] = {}
+        for b in blobs:
+            parts = b.name.split("/")
+            if len(parts) == 3 and parts[2] == FAMILY_MARKER_FILENAME:
+                family_names[parts[1]] = b.download_as_text().strip()
+
         families: dict[str, dict] = {}
         for b in blobs:
             if b.name.endswith("/"):
@@ -103,12 +118,17 @@ def list_fonts():
                 continue
             family_slug = parts[1]
             filename = parts[2]
+            if filename == FAMILY_MARKER_FILENAME:
+                continue
+
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in FONT_MIME_TYPES:
+                continue
+
             variant = os.path.splitext(filename)[0]
-            # Capitalize first letter of each word only, preserving existing casing
-            # (avoids .title() lowercasing acronyms like IBM → Ibm)
-            family_name = " ".join(
-                w[0].upper() + w[1:] if w else w
-                for w in family_slug.split("-")
+            # Use stored original name; fall back to slug-based reconstruction
+            family_name = family_names.get(family_slug) or " ".join(
+                w[0].upper() + w[1:] if w else w for w in family_slug.split("-")
             )
 
             view_url = b.generate_signed_url(

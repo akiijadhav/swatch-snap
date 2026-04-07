@@ -22,7 +22,7 @@ interface SwatchCardProps {
   cardRef: React.RefObject<HTMLDivElement>;
   saveStatus: SaveStatus;
   saveError: string | null;
-  onSave: () => void;
+  onSave: () => Promise<boolean>;
 }
 
 export default function SwatchCard({
@@ -43,9 +43,11 @@ export default function SwatchCard({
     );
   }, []);
 
-  const handleSave = useCallback(() => {
-    setSavedSwatches([...swatches]);
-    onSave();
+  const handleSave = useCallback(async () => {
+    const didSave = await onSave();
+    if (didSave) {
+      setSavedSwatches([...swatches]);
+    }
   }, [swatches, onSave]);
 
   const busy = saveStatus === "capturing" || saveStatus === "uploading";

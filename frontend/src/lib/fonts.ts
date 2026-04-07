@@ -67,9 +67,19 @@ export function getFontUrl(font: GoogleFont, variant = "regular"): string {
   const family = font.family.replace(/\s+/g, "+");
   const italic = variant === "italic" || variant.endsWith("italic");
   const weight = variant === "regular" || variant === "italic" ? "400" : variant.replace("italic", "");
+  if (variant === "regular") {
+    return `https://fonts.googleapis.com/css2?family=${family}&display=swap`;
+  }
   // CSS API v2: italic variants require ital,wght@1,{weight} axis syntax
   const axis = italic ? `ital,wght@1,${weight}` : `wght@${weight}`;
   return `https://fonts.googleapis.com/css2?family=${family}:${axis}&display=swap`;
+}
+
+function getFontDescriptor(fontFamily: string, variant: string): string {
+  const weight =
+    variant === "regular" || variant === "italic" ? "400" : variant.replace("italic", "");
+  const style = variant === "italic" || variant.endsWith("italic") ? "italic" : "normal";
+  return `${style} ${weight} 1rem "${fontFamily}"`;
 }
 
 export async function loadFont(
@@ -109,19 +119,26 @@ export async function loadFont(
     const face = new FontFace(fontFamily, buffer, { weight, style: fontStyle });
     await face.load();
     document.fonts.add(face);
+    await document.fonts.load(getFontDescriptor(fontFamily, variant));
+    await document.fonts.ready;
     loadedFonts.add(key);
     return;
   }
 
-  return new Promise((resolve, reject) => {
-    const link = document.createElement("link");
-    link.href = getFontUrl({ family: fontFamily } as GoogleFont, variant);
-    link.rel = "stylesheet";
-    link.onload = () => {
-      loadedFonts.add(key);
-      resolve();
-    };
-    link.onerror = () => reject(new Error(`Failed to load font: ${fontFamily}`));
-    document.head.appendChild(link);
-  });
+  const styleId = `google-font-${fontFamily.replace(/\s+/g, "-")}-${variant}`;
+  if (!document.getElementById(styleId)) {
+    const response = await fetch(getFontUrl({ family: fontFamily } as GoogleFont, variant));
+    if (!response.ok) {
+      throw new Error(`Failed to load font: ${fontFamily}`);
+    }
+    const cssText = await response.text();
+    const styleEl = document.createElement("style");
+    styleEl.id = styleId;
+    styleEl.textContent = cssText;
+    document.head.appendChild(styleEl);
+  }
+
+  await document.fonts.load(getFontDescriptor(fontFamily, variant));
+  await document.fonts.ready;
+  loadedFonts.add(key);
 }
